@@ -337,7 +337,7 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     if (logstashIndexer instanceof ElasticSearchDao) {
       URI logstashUri = ((ElasticSearchDao) logstashIndexer).getUri();
       if (logstashUri != null) {
-        return logstashUri.getPath();
+        return logstashUri.toString();
       }
     }
     return null;

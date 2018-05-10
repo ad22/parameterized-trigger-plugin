@@ -36,8 +36,8 @@ if(builds.size() > 0) {
 }
 
 def elasticSearchUri = my.elasticSearchUri
-if(uri.startsWith("http://elk.int.fusionio.com:9200")) {
-	h2("Subproject Builds (ElasticSearch)");
+if(elasticSearchUri != null) {
+	h2("Subproject Builds (Elasticsearch Permalinks)");
 
 	ul(style:"list-style-type: none;") {
 		for (item in builds.sort{it != null && it.hasProperty('description') ? it.description : ''}) {
@@ -46,8 +46,8 @@ if(uri.startsWith("http://elk.int.fusionio.com:9200")) {
 				if (item != null) {
 
 					raw(item.project.displayName)
-					a(href:"${elasticSearchUri}/${item.project.displayName}__" + String.valueOf(${item.number}), class:"model-link") {
-						img(src:"${imagesURL}/16x16/${item.buildStatusUrl}}",
+					a(href:"${elasticSearchUri}/${item.project.displayName}_${item.number}", class:"model-link") {
+						img(src:"${imagesURL}/16x16/${item.buildStatusUrl}",
 								alt:"${item.iconColor.description}", height:"16", width:"16")
 						text(item.displayName)
 					}
