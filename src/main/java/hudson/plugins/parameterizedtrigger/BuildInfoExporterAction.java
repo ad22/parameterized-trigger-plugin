@@ -26,20 +26,21 @@
 package hudson.plugins.parameterizedtrigger;
 
 import hudson.EnvVars;
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
-import hudson.model.EnvironmentContributingAction;
-import hudson.model.Result;
-import hudson.model.Run;
-import hudson.model.Job;
+import hudson.model.*;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import jenkins.model.Jenkins;
+import jenkins.plugins.logstash.LogstashConfiguration;
+import jenkins.plugins.logstash.persistence.ElasticSearchDao;
+import jenkins.plugins.logstash.persistence.LogstashIndexerDao;
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.export.ExportedBean;
+
+import java.net.URI;
 
 @ExportedBean
 public class BuildInfoExporterAction implements EnvironmentContributingAction {
@@ -320,5 +321,25 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
         }
     }
     return projects;
+  }
+
+  /**
+   * Gets the ElasticSearch URL from logstash plugin configuration
+   * Used in the UI for see Summary.groovy
+   *
+   * @return ElasticSearch URL if defined in the Logstash plugin
+   */
+  @Exported(visibility = 1)
+  public String getElasticSearchUri() {
+    LogstashConfiguration logstashConfig = (LogstashConfiguration) Jenkins.getActiveInstance().getDescriptor("jenkins.plugins.logstash.LogstashConfiguration");
+
+    LogstashIndexerDao logstashIndexer = logstashConfig.getIndexerInstance();
+    if (logstashIndexer instanceof ElasticSearchDao) {
+      URI logstashUri = ((ElasticSearchDao) logstashIndexer).getUri();
+      if (logstashUri != null) {
+        return logstashUri.getPath();
+      }
+    }
+    return null;
   }
 }
