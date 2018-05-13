@@ -44,9 +44,9 @@ if(elasticSearchUri != null) {
 //		for (item in builds.sort{it.timeInMillis}) {
 			li {
 				if (item != null) {
-
-					raw(item.project.displayName)
-					a(href:"${elasticSearchUri}/${item.project.displayName}_${item.number}", class:"model-link") {
+					a(href:"${rootURL}/${item.project.url}", class:"model-link") {
+						text(item.project.displayName)
+					a(href:"${elasticSearchUri}/${item.project.displayName}_${item.number}?_source_includes=message", class:"model-link") {
 						img(src:"${imagesURL}/16x16/${item.buildStatusUrl}",
 								alt:"${item.iconColor.description}", height:"16", width:"16")
 						text(item.displayName)
