@@ -174,7 +174,7 @@ public class TriggerBuilder extends Builder implements DependencyDeclarer {
                                             runs.remove(future);
                                             Run b = future.get();
                                             listener.getLogger().println(HyperlinkNote.encodeTo('/' + b.getUrl(), b.getFullDisplayName()) + " completed. Result was " + b.getResult());
-                                            BuildInfoExporterAction.addBuildInfoExporterAction(build, b.getParent().getFullName(), b.getNumber(), b.getResult());
+                                            BuildInfoExporterAction.addBuildInfoExporterAction(build, b.getParent().getFullName(), b.getNumber(), b.getResult(), b.getDescription());
 
                                             if (buildStepResult && config.getBlock().mapBuildStepResult(b.getResult())) {
                                                 build.setResult(config.getBlock().mapBuildResult(b.getResult()));
@@ -243,7 +243,7 @@ public class TriggerBuilder extends Builder implements DependencyDeclarer {
                                             latestBuild.setResult(Result.ABORTED);
                                             latestBuild.getExecutor().doStop();
                                             listener.getLogger().println("Aborted " + HyperlinkNote.encodeTo('/' + latestBuild.getUrl(), latestBuild.getFullDisplayName()));
-                                            BuildInfoExporterAction.addBuildInfoExporterAction(build, latestBuild.getParent().getFullName(), latestBuild.getNumber(), latestBuild.getResult());
+                                            BuildInfoExporterAction.addBuildInfoExporterAction(build, latestBuild.getParent().getFullName(), latestBuild.getNumber(), latestBuild.getResult(), latestBuild.getDescription());
                                         }
                                     }
                                 }

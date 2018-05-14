@@ -71,17 +71,17 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     lastReference = buildRef;
   }
 
-  public BuildInfoExporterAction(String buildName, int buildNumber, AbstractBuild<?, ?> parentBuild, Result buildResult) {
-    this(new BuildReference(buildName, buildNumber, buildResult));
+  public BuildInfoExporterAction(String buildName, int buildNumber, AbstractBuild<?, ?> parentBuild, Result buildResult, String buildDescription) {
+    this(new BuildReference(buildName, buildNumber, buildResult, buildDescription));
   }
 
-  static BuildInfoExporterAction addBuildInfoExporterAction(AbstractBuild<?, ?> parentBuild, String triggeredProject, int buildNumber, Result buildResult) {
+  static BuildInfoExporterAction addBuildInfoExporterAction(AbstractBuild<?, ?> parentBuild, String triggeredProject, int buildNumber, Result buildResult, String buildDescription) {
     BuildInfoExporterAction action = parentBuild.getAction(BuildInfoExporterAction.class);
     if (action == null) {
-      action = new BuildInfoExporterAction(triggeredProject, buildNumber, parentBuild, buildResult);
+      action = new BuildInfoExporterAction(triggeredProject, buildNumber, parentBuild, buildResult, buildDescription);
       parentBuild.getActions().add(action);
     } else {
-      action.addBuildReference(triggeredProject, buildNumber, buildResult);
+      action.addBuildReference(triggeredProject, buildNumber, buildResult, buildDescription);
     }
     return action;
   }
@@ -106,8 +106,8 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     }
   }
 
-  public void addBuildReference(String triggeredProject, int buildNumber, Result buildResult) {
-    BuildReference buildRef = new BuildReference(triggeredProject, buildNumber, buildResult);
+  public void addBuildReference(String triggeredProject, int buildNumber, Result buildResult, String buildDescription) {
+    BuildReference buildRef = new BuildReference(triggeredProject, buildNumber, buildResult, buildDescription);
     addBuild(buildRef);
   }
 
@@ -120,17 +120,20 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     public final String projectName;
     public final int buildNumber;
     public final Result buildResult;
+    public final String buildDescription;
 
-    public BuildReference(String projectName, int buildNumber, Result buildResult) {
+    public BuildReference(String projectName, int buildNumber, Result buildResult, String buildDescription) {
       this.projectName = projectName;
       this.buildNumber = buildNumber;
       this.buildResult = buildResult;
+      this.buildDescription = buildDescription;
     }
 
     public BuildReference(final String projectName) {
       this.projectName = projectName;
       this.buildNumber = 0;
       this.buildResult = Result.NOT_BUILT;
+      this.buildDescription = "";
     }
   }
 
@@ -219,6 +222,26 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
   }
 
   /**
+   * Gets all the projects triggered from this one, filters out the items that
+   * were non blocking, which we don't have a builds for. Used in the UI for see
+   * Summary.groovy
+   *
+   * @return a list of buildRefs that are triggered by this build. May contains null if a project or a build is deleted.
+   */
+  @Exported(visibility = 1)
+  public List<BuildReference> getBlockingBuildRefs() {
+
+    List<BuildReference> triggeredBuildRefs = new ArrayList<>();
+
+    for (BuildReference br : this.builds) {
+      if (br.buildNumber != 0) {
+        triggeredBuildRefs.add(br);
+      }
+    }
+    return triggeredBuildRefs;
+  }
+
+  /**
    * Gets all the projects that triggered from this one which were non blocking,
    * which we don't have a builds for. Does not include builds that are returned
    * in #link{getTriggeredBuilds} Used in the UI for see Summary.groovy
@@ -247,7 +270,7 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
    */
   public Object readResolve() {
     if (this.lastReference == null) {
-      this.lastReference = new BuildReference(this.buildName, this.buildNumber, Result.NOT_BUILT);
+      this.lastReference = new BuildReference(this.buildName, this.buildNumber, Result.NOT_BUILT, "");
     }
     if (this.builds == null) {
       this.builds = new ArrayList<BuildReference>();
