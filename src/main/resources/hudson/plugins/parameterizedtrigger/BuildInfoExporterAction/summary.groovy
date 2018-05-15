@@ -45,6 +45,9 @@ if(elasticSearchUri != null && blockingBuildRefs.size() > 0) {
 
 	ul(style: "list-style-type: none;") {
 		for (item in blockingBuildRefs.sort {it.buildDescription}) {
+			if (!my.isLogstashEnabled(item.projectName)) {
+				break
+			}
 			if (item.buildResult == Result.SUCCESS) {
 				iconFileName = BallColor.BLUE.image
 				iconDescription = BallColor.BLUE.description

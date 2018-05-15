@@ -33,8 +33,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import hudson.util.DescribableList;
 import jenkins.model.Jenkins;
 import jenkins.plugins.logstash.LogstashConfiguration;
+import jenkins.plugins.logstash.LogstashNotifier;
 import jenkins.plugins.logstash.persistence.ElasticSearchDao;
 import jenkins.plugins.logstash.persistence.LogstashIndexerDao;
 import org.kohsuke.stapler.export.Exported;
@@ -55,7 +58,7 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
   //now unused as part of map
   private transient String buildName;
   private transient int buildNumber;
-  
+
   // used in version =< 2.21.
   // this is now migrated to this.builds.
   private transient Map<String, List<BuildReference>> buildRefs;
@@ -191,13 +194,13 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     }
   }
 
-    private List<BuildReference> getBuildRefs(String project) {
-        List<BuildReference> refs = new ArrayList<BuildReference>();
-        for (BuildReference br : builds) {
-            if (br.projectName.equals(project)) refs.add(br);
-        }
-        return refs;
+  private List<BuildReference> getBuildRefs(String project) {
+    List<BuildReference> refs = new ArrayList<BuildReference>();
+    for (BuildReference br : builds) {
+      if (br.projectName.equals(project)) refs.add(br);
     }
+    return refs;
+  }
 
   /**
    * Gets all the builds triggered from this one, filters out the items that
@@ -212,11 +215,11 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     List<Run<?, ?>> builds = new ArrayList<Run<?, ?>>();
 
     for (BuildReference br : this.builds) {
-        Job<?, ? extends Run<?, ?>> project =
+      Job<?, ? extends Run<?, ?>> project =
               Jenkins.getInstance().getItemByFullName(br.projectName, Job.class);
-        if (br.buildNumber != 0) {
-            builds.add((project != null)?project.getBuildByNumber(br.buildNumber):null);
-        }
+      if (br.buildNumber != 0) {
+        builds.add((project != null) ? project.getBuildByNumber(br.buildNumber) : null);
+      }
     }
     return builds;
   }
@@ -253,11 +256,11 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     List<Job<?, ?>> projects = new ArrayList<Job<?, ?>>();
 
     for (BuildReference br : this.builds) {
-        if (br.buildNumber == 0) {
-            Job<?, ? extends Run<?, ?>> project =
-                    Jenkins.getInstance().getItemByFullName(br.projectName, Job.class);
-            projects.add(project);
-        }
+      if (br.buildNumber == 0) {
+        Job<?, ? extends Run<?, ?>> project =
+                Jenkins.getInstance().getItemByFullName(br.projectName, Job.class);
+        projects.add(project);
+      }
     }
     return projects;
   }
@@ -276,9 +279,9 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
       this.builds = new ArrayList<BuildReference>();
     }
     if (this.buildRefs != null) {
-        for (List<BuildReference> buildReferences : buildRefs.values()) {
-            this.builds.addAll(buildReferences);
-        }
+      for (List<BuildReference> buildReferences : buildRefs.values()) {
+        this.builds.addAll(buildReferences);
+      }
     }
     return this;
   }
@@ -286,7 +289,7 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
   /**
    * Gets a string for all of the build numbers
    *
-   * @param refs List of build references to process.
+   * @param refs      List of build references to process.
    * @param separator
    * @return String containing all the build numbers from refs, never null but
    * can be empty
@@ -339,9 +342,9 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     Set<String> projects = new HashSet<String>();
 
     for (BuildReference br : this.builds) {
-        if (br.buildNumber != 0) {
-          projects.add(br.projectName);
-        }
+      if (br.buildNumber != 0) {
+        projects.add(br.projectName);
+      }
     }
     return projects;
   }
@@ -365,4 +368,30 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     }
     return null;
   }
+
+  /**
+   * Check if logstash plugin is enabled for this project, and globally
+   * Used in the UI, see summary.groovy
+   *
+   * @return boolean
+   */
+  @Exported(visibility = 1)
+  public boolean isLogstashEnabled(String projectName) {
+    LogstashConfiguration logstashConfig = (LogstashConfiguration) Jenkins.getActiveInstance().getDescriptor("jenkins.plugins.logstash.LogstashConfiguration");
+    if (logstashConfig.isEnableGlobally()) {
+      return true;
+    }
+
+    Job<?, ? extends Run<?, ?>> project =
+            Jenkins.getInstance().getItemByFullName(projectName, Job.class);
+
+    if (project instanceof AbstractProject) {
+      DescribableList publishers = ((AbstractProject) project).getPublishersList();
+      if (publishers.get(LogstashNotifier.class) != null) {
+        return true;
+      }
+    }
+    return false;
+  }
 }
+
