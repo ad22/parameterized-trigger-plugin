@@ -338,7 +338,8 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
    *
    * @return Set of project names that have at least one build linked.
    */
-  private Set<String> getProjectsWithBuilds() {
+  @Exported(visibility = 1)
+  public Set<String> getProjectsWithBuilds() {
     Set<String> projects = new HashSet<String>();
 
     for (BuildReference br : this.builds) {

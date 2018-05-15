@@ -41,36 +41,37 @@ if(builds.size() > 0) {
 def elasticSearchUri = my.elasticSearchUri
 def blockingBuildRefs = my.blockingBuildRefs
 if(elasticSearchUri != null && blockingBuildRefs.size() > 0) {
-	h2("Subproject Builds (Elasticsearch)");
+	def uniqueProjects = my.projectsWithBuilds
+	def enabled = false
+	for (project in uniqueProjects) {
+		if (my.isLogstashEnabled(project)) {
+			enabled = true
+		}
+	}
+	if (enabled) {
+		h2("Subproject Builds (Elasticsearch)");
 
-	ul(style: "list-style-type: none;") {
-		for (item in blockingBuildRefs.sort {it.buildDescription}) {
-			if (!my.isLogstashEnabled(item.projectName)) {
-				break
-			}
-			if (item.buildResult == Result.SUCCESS) {
-				iconFileName = BallColor.BLUE.image
-				iconDescription = BallColor.BLUE.description
-			}
-			else if (item.buildResult == Result.FAILURE) {
-				iconFileName = BallColor.RED.image
-				iconDescription = BallColor.RED.description
-			}
-			else if (item.buildResult == Result.ABORTED) {
-				iconFileName = BallColor.ABORTED.image
-				iconDescription = BallColor.ABORTED.description
-			}
-			else {
-				iconFileName = BallColor.DISABLED.image
-				iconDescription = BallColor.DISABLED.description
-			}
-			li {
-				if (item != null) {
-					a(href: "${rootURL}/${item.projectName}", class: "model-link") {
+		ul(style: "list-style-type: none;") {
+			for (item in blockingBuildRefs.sort { it.buildDescription }) {
+				if (item.buildResult == Result.SUCCESS) {
+					iconFileName = BallColor.BLUE.image
+					iconDescription = BallColor.BLUE.description
+				} else if (item.buildResult == Result.FAILURE) {
+					iconFileName = BallColor.RED.image
+					iconDescription = BallColor.RED.description
+				} else if (item.buildResult == Result.ABORTED) {
+					iconFileName = BallColor.ABORTED.image
+					iconDescription = BallColor.ABORTED.description
+				} else {
+					iconFileName = BallColor.DISABLED.image
+					iconDescription = BallColor.DISABLED.description
+				}
+				li {
+					if (item != null) {
 						text(item.projectName)
 						a(href: "${elasticSearchUri}/${item.projectName}_${item.buildNumber}?_source_includes=message", class: "model-link") {
-							img(src:"${imagesURL}/16x16/${iconFileName}",
-								alt:"${iconDescription}", height:"16", width:"16")
+							img(src: "${imagesURL}/16x16/${iconFileName}",
+									alt: "${iconDescription}", height: "16", width: "16")
 							text('#' + item.buildNumber)
 						}
 
