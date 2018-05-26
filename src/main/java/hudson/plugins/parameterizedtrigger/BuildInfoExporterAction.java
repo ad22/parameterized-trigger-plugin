@@ -219,8 +219,11 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
               Jenkins.getInstance().getItemByFullName(br.projectName, Job.class);
       if (br.buildNumber != 0) {
         if (project != null) {
-          builds.add(project.getBuildByNumber(br.buildNumber));
-        };
+          Run<?, ?> run = project.getBuildByNumber(br.buildNumber);
+          if (run != null) {
+            builds.add(run);
+          }
+        }
       }
     }
     return builds;
