@@ -69,7 +69,7 @@ if(elasticSearchUri != null && blockingBuildRefs.size() > 0) {
 				li {
 					if (item != null) {
 						text(item.projectName)
-						a(href: "${elasticSearchUri}/${item.projectName}_${item.buildNumber}?_source_includes=message", class: "model-link") {
+						a(href: "${elasticSearchUri}/${item.projectName}_${item.buildNumber}?_source_includes=message&&pretty=true", class: "model-link") {
 							img(src: "${imagesURL}/16x16/${iconFileName}",
 									alt: "${iconDescription}", height: "16", width: "16")
 							text('#' + item.buildNumber)
