@@ -44,6 +44,8 @@ import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.export.ExportedBean;
 
 import java.net.URI;
+import java.net.URISyntaxException;
+import org.apache.http.client.utils.URIBuilder;
 
 @ExportedBean
 public class BuildInfoExporterAction implements EnvironmentContributingAction {
@@ -369,6 +371,16 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     if (logstashIndexer instanceof ElasticSearchDao) {
       URI logstashUri = ((ElasticSearchDao) logstashIndexer).getUri();
       if (logstashUri != null) {
+        String[] path = logstashUri.getPath().split("/");
+        String wildcardPath = path[1] + "*/" + path[2] + "/_search";
+        URIBuilder queryUri = new URIBuilder(logstashUri);
+        queryUri.setPath(wildcardPath);
+        try {
+          logstashUri = queryUri.build();
+        } catch (URISyntaxException e) {
+          // pass
+        }
+
         return logstashUri.toString();
       }
     }
