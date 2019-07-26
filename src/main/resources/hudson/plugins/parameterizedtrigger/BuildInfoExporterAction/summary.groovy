@@ -62,6 +62,9 @@ if(elasticSearchUri != null && blockingBuildRefs.size() > 0) {
 				} else if (item.buildResult == Result.ABORTED) {
 					iconFileName = BallColor.ABORTED.image
 					iconDescription = BallColor.ABORTED.description
+				} else if (item.buildResult == Result.UNSTABLE) {
+					iconFileName = BallColor.YELLOW.image
+					iconDescription = BallColor.YELLOW.description
 				} else {
 					iconFileName = BallColor.DISABLED.image
 					iconDescription = BallColor.DISABLED.description
