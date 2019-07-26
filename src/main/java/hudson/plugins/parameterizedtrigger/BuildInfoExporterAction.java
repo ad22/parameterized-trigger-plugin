@@ -408,6 +408,10 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
       if (publishers.get(LogstashNotifier.class) != null) {
         return true;
       }
+      // I know... really ugly
+      if (project.getName().startsWith("sb.run")) {
+        return true;
+      }
     }
     return false;
   }
