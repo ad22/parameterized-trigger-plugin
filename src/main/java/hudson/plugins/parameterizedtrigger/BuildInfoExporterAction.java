@@ -26,20 +26,26 @@
 package hudson.plugins.parameterizedtrigger;
 
 import hudson.EnvVars;
-import hudson.model.AbstractBuild;
-import hudson.model.AbstractProject;
-import hudson.model.EnvironmentContributingAction;
-import hudson.model.Result;
-import hudson.model.Run;
-import hudson.model.Job;
+import hudson.model.*;
+
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
+import hudson.util.DescribableList;
 import jenkins.model.Jenkins;
+import jenkins.plugins.logstash.LogstashConfiguration;
+import jenkins.plugins.logstash.LogstashNotifier;
+import jenkins.plugins.logstash.persistence.ElasticSearchDao;
+import jenkins.plugins.logstash.persistence.LogstashIndexerDao;
 import org.kohsuke.stapler.export.Exported;
 import org.kohsuke.stapler.export.ExportedBean;
+
+import java.net.URI;
+import java.net.URISyntaxException;
+import org.apache.http.client.utils.URIBuilder;
 
 @ExportedBean
 public class BuildInfoExporterAction implements EnvironmentContributingAction {
@@ -54,7 +60,7 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
   //now unused as part of map
   private transient String buildName;
   private transient int buildNumber;
-  
+
   // used in version =< 2.21.
   // this is now migrated to this.builds.
   private transient Map<String, List<BuildReference>> buildRefs;
@@ -70,17 +76,17 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     lastReference = buildRef;
   }
 
-  public BuildInfoExporterAction(String buildName, int buildNumber, AbstractBuild<?, ?> parentBuild, Result buildResult) {
-    this(new BuildReference(buildName, buildNumber, buildResult));
+  public BuildInfoExporterAction(String buildName, int buildNumber, AbstractBuild<?, ?> parentBuild, Result buildResult, String buildDescription) {
+    this(new BuildReference(buildName, buildNumber, buildResult, buildDescription));
   }
 
-  static BuildInfoExporterAction addBuildInfoExporterAction(AbstractBuild<?, ?> parentBuild, String triggeredProject, int buildNumber, Result buildResult) {
+  static BuildInfoExporterAction addBuildInfoExporterAction(AbstractBuild<?, ?> parentBuild, String triggeredProject, int buildNumber, Result buildResult, String buildDescription) {
     BuildInfoExporterAction action = parentBuild.getAction(BuildInfoExporterAction.class);
     if (action == null) {
-      action = new BuildInfoExporterAction(triggeredProject, buildNumber, parentBuild, buildResult);
+      action = new BuildInfoExporterAction(triggeredProject, buildNumber, parentBuild, buildResult, buildDescription);
       parentBuild.getActions().add(action);
     } else {
-      action.addBuildReference(triggeredProject, buildNumber, buildResult);
+      action.addBuildReference(triggeredProject, buildNumber, buildResult, buildDescription);
     }
     return action;
   }
@@ -105,8 +111,8 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     }
   }
 
-  public void addBuildReference(String triggeredProject, int buildNumber, Result buildResult) {
-    BuildReference buildRef = new BuildReference(triggeredProject, buildNumber, buildResult);
+  public void addBuildReference(String triggeredProject, int buildNumber, Result buildResult, String buildDescription) {
+    BuildReference buildRef = new BuildReference(triggeredProject, buildNumber, buildResult, buildDescription);
     addBuild(buildRef);
   }
 
@@ -119,17 +125,20 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     public final String projectName;
     public final int buildNumber;
     public final Result buildResult;
+    public final String buildDescription;
 
-    public BuildReference(String projectName, int buildNumber, Result buildResult) {
+    public BuildReference(String projectName, int buildNumber, Result buildResult, String buildDescription) {
       this.projectName = projectName;
       this.buildNumber = buildNumber;
       this.buildResult = buildResult;
+      this.buildDescription = buildDescription;
     }
 
     public BuildReference(final String projectName) {
       this.projectName = projectName;
       this.buildNumber = 0;
       this.buildResult = Result.NOT_BUILT;
+      this.buildDescription = "";
     }
   }
 
@@ -187,13 +196,13 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     }
   }
 
-    private List<BuildReference> getBuildRefs(String project) {
-        List<BuildReference> refs = new ArrayList<BuildReference>();
-        for (BuildReference br : builds) {
-            if (br.projectName.equals(project)) refs.add(br);
-        }
-        return refs;
+  private List<BuildReference> getBuildRefs(String project) {
+    List<BuildReference> refs = new ArrayList<BuildReference>();
+    for (BuildReference br : builds) {
+      if (br.projectName.equals(project)) refs.add(br);
     }
+    return refs;
+  }
 
   /**
    * Gets all the builds triggered from this one, filters out the items that
@@ -208,13 +217,38 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     List<Run<?, ?>> builds = new ArrayList<Run<?, ?>>();
 
     for (BuildReference br : this.builds) {
-        Job<?, ? extends Run<?, ?>> project =
+      Job<?, ? extends Run<?, ?>> project =
               Jenkins.getInstance().getItemByFullName(br.projectName, Job.class);
-        if (br.buildNumber != 0) {
-            builds.add((project != null)?project.getBuildByNumber(br.buildNumber):null);
+      if (br.buildNumber != 0) {
+        if (project != null) {
+          Run<?, ?> run = project.getBuildByNumber(br.buildNumber);
+          if (run != null) {
+            builds.add(run);
+          }
         }
+      }
     }
     return builds;
+  }
+
+  /**
+   * Gets all the projects triggered from this one, filters out the items that
+   * were non blocking, which we don't have a builds for. Used in the UI for see
+   * Summary.groovy
+   *
+   * @return a list of buildRefs that are triggered by this build. May contains null if a project or a build is deleted.
+   */
+  @Exported(visibility = 1)
+  public List<BuildReference> getBlockingBuildRefs() {
+
+    List<BuildReference> triggeredBuildRefs = new ArrayList<>();
+
+    for (BuildReference br : this.builds) {
+      if (br.buildNumber != 0) {
+        triggeredBuildRefs.add(br);
+      }
+    }
+    return triggeredBuildRefs;
   }
 
   /**
@@ -229,11 +263,11 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     List<Job<?, ?>> projects = new ArrayList<Job<?, ?>>();
 
     for (BuildReference br : this.builds) {
-        if (br.buildNumber == 0) {
-            Job<?, ? extends Run<?, ?>> project =
-                    Jenkins.getInstance().getItemByFullName(br.projectName, Job.class);
-            projects.add(project);
-        }
+      if (br.buildNumber == 0) {
+        Job<?, ? extends Run<?, ?>> project =
+                Jenkins.getInstance().getItemByFullName(br.projectName, Job.class);
+        projects.add(project);
+      }
     }
     return projects;
   }
@@ -246,15 +280,15 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
    */
   public Object readResolve() {
     if (this.lastReference == null) {
-      this.lastReference = new BuildReference(this.buildName, this.buildNumber, Result.NOT_BUILT);
+      this.lastReference = new BuildReference(this.buildName, this.buildNumber, Result.NOT_BUILT, "");
     }
     if (this.builds == null) {
       this.builds = new ArrayList<BuildReference>();
     }
     if (this.buildRefs != null) {
-        for (List<BuildReference> buildReferences : buildRefs.values()) {
-            this.builds.addAll(buildReferences);
-        }
+      for (List<BuildReference> buildReferences : buildRefs.values()) {
+        this.builds.addAll(buildReferences);
+      }
     }
     return this;
   }
@@ -262,7 +296,7 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
   /**
    * Gets a string for all of the build numbers
    *
-   * @param refs List of build references to process.
+   * @param refs      List of build references to process.
    * @param separator
    * @return String containing all the build numbers from refs, never null but
    * can be empty
@@ -311,14 +345,75 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
    *
    * @return Set of project names that have at least one build linked.
    */
-  private Set<String> getProjectsWithBuilds() {
+  @Exported(visibility = 1)
+  public Set<String> getProjectsWithBuilds() {
     Set<String> projects = new HashSet<String>();
 
     for (BuildReference br : this.builds) {
-        if (br.buildNumber != 0) {
-          projects.add(br.projectName);
-        }
+      if (br.buildNumber != 0) {
+        projects.add(br.projectName);
+      }
     }
     return projects;
   }
+
+  /**
+   * Gets the ElasticSearch URL from logstash plugin configuration
+   * Used in the UI for see Summary.groovy
+   *
+   * @return ElasticSearch URL if defined in the Logstash plugin
+   */
+  @Exported(visibility = 1)
+  public String getElasticSearchUri() {
+    LogstashConfiguration logstashConfig = (LogstashConfiguration) Jenkins.getActiveInstance().getDescriptor("jenkins.plugins.logstash.LogstashConfiguration");
+
+    LogstashIndexerDao logstashIndexer = logstashConfig.getIndexerInstance();
+    if (logstashIndexer instanceof ElasticSearchDao) {
+      URI logstashUri = ((ElasticSearchDao) logstashIndexer).getUri();
+      if (logstashUri != null) {
+        String[] path = logstashUri.getPath().split("/");
+        String wildcardPath = path[1] + "*/" + path[2] + "/_search";
+        URIBuilder queryUri = new URIBuilder(logstashUri);
+        queryUri.setPath(wildcardPath);
+        try {
+          logstashUri = queryUri.build();
+        } catch (URISyntaxException e) {
+          // pass
+        }
+
+        return logstashUri.toString();
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Check if logstash plugin is enabled for this project, and globally
+   * Used in the UI, see summary.groovy
+   *
+   * @return boolean
+   */
+  @Exported(visibility = 1)
+  public boolean isLogstashEnabled(String projectName) {
+    LogstashConfiguration logstashConfig = (LogstashConfiguration) Jenkins.getActiveInstance().getDescriptor("jenkins.plugins.logstash.LogstashConfiguration");
+    if (logstashConfig.isEnableGlobally()) {
+      return true;
+    }
+
+    Job<?, ? extends Run<?, ?>> project =
+            Jenkins.getInstance().getItemByFullName(projectName, Job.class);
+
+    if (project instanceof AbstractProject) {
+      DescribableList publishers = ((AbstractProject) project).getPublishersList();
+      if (publishers.get(LogstashNotifier.class) != null) {
+        return true;
+      }
+      // I know... really ugly
+      if (project.getName().startsWith("sb.run")) {
+        return true;
+      }
+    }
+    return false;
+  }
 }
+

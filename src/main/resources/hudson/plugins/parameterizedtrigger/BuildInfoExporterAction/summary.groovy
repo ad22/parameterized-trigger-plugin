@@ -1,4 +1,7 @@
-package hudson.plugins.parameterizedtrigger.BuildInfoExporterAction;
+package hudson.plugins.parameterizedtrigger.BuildInfoExporterAction
+
+import hudson.model.BallColor
+import hudson.model.Result;
 
 def f=namespace(lib.FormTagLib)
 def j=namespace(lib.JenkinsTagLib)
@@ -28,6 +31,56 @@ if(builds.size() > 0) {
 	//						item.properties.each { prop, val ->
 	//							text(prop + '=' + val + " <br/> ")
 	//						}
+					}
+				}
+			}
+		}
+	}
+}
+
+def elasticSearchUri = my.elasticSearchUri
+def blockingBuildRefs = my.blockingBuildRefs
+if(elasticSearchUri != null && blockingBuildRefs.size() > 0) {
+	def uniqueProjects = my.projectsWithBuilds
+	def enabled = false
+	for (project in uniqueProjects) {
+		if (my.isLogstashEnabled(project)) {
+			enabled = true
+		}
+	}
+	if (enabled) {
+		h2("Subproject Builds (Elasticsearch)");
+
+		ul(style: "list-style-type: none;") {
+			for (item in blockingBuildRefs.sort { it.buildDescription }) {
+				if (item.buildResult == Result.SUCCESS) {
+					iconFileName = BallColor.BLUE.image
+					iconDescription = BallColor.BLUE.description
+				} else if (item.buildResult == Result.FAILURE) {
+					iconFileName = BallColor.RED.image
+					iconDescription = BallColor.RED.description
+				} else if (item.buildResult == Result.ABORTED) {
+					iconFileName = BallColor.ABORTED.image
+					iconDescription = BallColor.ABORTED.description
+				} else if (item.buildResult == Result.UNSTABLE) {
+					iconFileName = BallColor.YELLOW.image
+					iconDescription = BallColor.YELLOW.description
+				} else {
+					iconFileName = BallColor.DISABLED.image
+					iconDescription = BallColor.DISABLED.description
+				}
+				li {
+					if (item != null) {
+						text(item.projectName)
+						a(href: "${elasticSearchUri}?q=_id:${item.projectName}_${item.buildNumber}&&_source_includes=message,@buildTimestamp&&pretty=true", class: "model-link") {
+							img(src: "${imagesURL}/16x16/${iconFileName}",
+									alt: "${iconDescription}", height: "16", width: "16")
+							text('#' + item.buildNumber)
+						}
+
+						if (item.buildDescription) {
+							raw(' ' + item.buildDescription)
+						}
 					}
 				}
 			}
