@@ -76,17 +76,17 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     lastReference = buildRef;
   }
 
-  public BuildInfoExporterAction(String buildName, int buildNumber, AbstractBuild<?, ?> parentBuild, Result buildResult, String buildDescription) {
-    this(new BuildReference(buildName, buildNumber, buildResult, buildDescription));
+  public BuildInfoExporterAction(String buildName, int buildNumber, AbstractBuild<?, ?> parentBuild, Result buildResult, String buildDescription, String jenkinsHost) {
+    this(new BuildReference(buildName, buildNumber, buildResult, buildDescription, jenkinsHost));
   }
 
-  static BuildInfoExporterAction addBuildInfoExporterAction(AbstractBuild<?, ?> parentBuild, String triggeredProject, int buildNumber, Result buildResult, String buildDescription) {
+  static BuildInfoExporterAction addBuildInfoExporterAction(AbstractBuild<?, ?> parentBuild, String triggeredProject, int buildNumber, Result buildResult, String buildDescription, String jenkinsHost) {
     BuildInfoExporterAction action = parentBuild.getAction(BuildInfoExporterAction.class);
     if (action == null) {
-      action = new BuildInfoExporterAction(triggeredProject, buildNumber, parentBuild, buildResult, buildDescription);
+      action = new BuildInfoExporterAction(triggeredProject, buildNumber, parentBuild, buildResult, buildDescription, jenkinsHost);
       parentBuild.getActions().add(action);
     } else {
-      action.addBuildReference(triggeredProject, buildNumber, buildResult, buildDescription);
+      action.addBuildReference(triggeredProject, buildNumber, buildResult, buildDescription, jenkinsHost);
     }
     return action;
   }
@@ -111,8 +111,8 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     }
   }
 
-  public void addBuildReference(String triggeredProject, int buildNumber, Result buildResult, String buildDescription) {
-    BuildReference buildRef = new BuildReference(triggeredProject, buildNumber, buildResult, buildDescription);
+  public void addBuildReference(String triggeredProject, int buildNumber, Result buildResult, String buildDescription, String jenkinsHost) {
+    BuildReference buildRef = new BuildReference(triggeredProject, buildNumber, buildResult, buildDescription, jenkinsHost);
     addBuild(buildRef);
   }
 
@@ -126,12 +126,14 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
     public final int buildNumber;
     public final Result buildResult;
     public final String buildDescription;
+    public final String jenkinsHost;
 
-    public BuildReference(String projectName, int buildNumber, Result buildResult, String buildDescription) {
+    public BuildReference(String projectName, int buildNumber, Result buildResult, String buildDescription, String jenkinsHost) {
       this.projectName = projectName;
       this.buildNumber = buildNumber;
       this.buildResult = buildResult;
       this.buildDescription = buildDescription;
+      this.jenkinsHost = jenkinsHost;
     }
 
     public BuildReference(final String projectName) {
@@ -139,6 +141,7 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
       this.buildNumber = 0;
       this.buildResult = Result.NOT_BUILT;
       this.buildDescription = "";
+      this.jenkinsHost = "";
     }
   }
 
@@ -280,7 +283,7 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
    */
   public Object readResolve() {
     if (this.lastReference == null) {
-      this.lastReference = new BuildReference(this.buildName, this.buildNumber, Result.NOT_BUILT, "");
+      this.lastReference = new BuildReference(this.buildName, this.buildNumber, Result.NOT_BUILT, "", "");
     }
     if (this.builds == null) {
       this.builds = new ArrayList<BuildReference>();

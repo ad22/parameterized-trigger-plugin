@@ -62,6 +62,8 @@ import java.util.Arrays;
 import java.util.TreeSet;
 import java.util.Iterator;
 import java.util.Collection;
+import java.net.URL;
+import java.net.MalformedURLException;
 
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ExecutionException;
@@ -157,7 +159,7 @@ public class TriggerBuilder extends Builder implements DependencyDeclarer {
                         }
                         List<Future<Run>> runs = futures.get(p);
                         try {
-                            listener.getLogger().println("Waiting for the completion of " + HyperlinkNote.encodeTo('/' + p.getUrl(), p.getFullDisplayName()) + " (" + runs.size() +")");
+                            listener.getLogger().println("Waiting for the completion of " + HyperlinkNote.encodeTo('/' + p.getUrl(), p.getFullDisplayName()) + " (" + runs.size() + ")");
                             while (!runs.isEmpty()) {
                                 List<Future<Run>> total_runs = new ArrayList<>(runs);
                                 for (Future<Run> future : total_runs)
@@ -174,9 +176,8 @@ public class TriggerBuilder extends Builder implements DependencyDeclarer {
                                             }
                                             runs.remove(future);
                                             Run b = future.get();
-                                            listener.getLogger().println(HyperlinkNote.encodeTo('/' + b.getUrl(), b.getFullDisplayName()) + " completed. Result was " + b.getResult());
-                                            listener.getLogger().println("Description: " + StringUtils.abbreviate(b.getDescription(), 15));
-                                            BuildInfoExporterAction.addBuildInfoExporterAction(build, b.getParent().getFullName(), b.getNumber(), b.getResult(), b.getDescription());
+                                            listener.getLogger().println(HyperlinkNote.encodeTo('/' + b.getUrl(), b.getFullDisplayName()) + " completed. Result was " + b.getResult() + " (" + StringUtils.abbreviate(b.getDescription(), 50) + ")");
+                                            BuildInfoExporterAction.addBuildInfoExporterAction(build, b.getParent().getFullName(), b.getNumber(), b.getResult(), b.getDescription(), getJenkinsHost());
 
                                             if (buildStepResult && config.getBlock().mapBuildStepResult(b.getResult())) {
                                                 build.setResult(config.getBlock().mapBuildResult(b.getResult()));
@@ -248,7 +249,7 @@ public class TriggerBuilder extends Builder implements DependencyDeclarer {
                                             latestBuild.setResult(Result.ABORTED);
                                             latestBuild.getExecutor().doStop();
                                             listener.getLogger().println("Aborted " + HyperlinkNote.encodeTo('/' + latestBuild.getUrl(), latestBuild.getFullDisplayName()));
-                                            BuildInfoExporterAction.addBuildInfoExporterAction(build, latestBuild.getParent().getFullName(), latestBuild.getNumber(), latestBuild.getResult(), latestBuild.getDescription());
+                                            BuildInfoExporterAction.addBuildInfoExporterAction(build, latestBuild.getParent().getFullName(), latestBuild.getNumber(), latestBuild.getResult(), latestBuild.getDescription(), getJenkinsHost());
                                         }
                                     }
                                 }
@@ -327,5 +328,18 @@ public class TriggerBuilder extends Builder implements DependencyDeclarer {
         public boolean isApplicable(Class<? extends AbstractProject> jobType) {
             return true;
         }
+    }
+
+    public String getJenkinsUrl() {
+        return Jenkins.getInstance().getRootUrl();
+    }
+
+   public URL getParsedJenkinsUrl() throws MalformedURLException {
+        URL parsedUrl = new URL(getJenkinsUrl());
+        return parsedUrl;
+    }
+
+    public String getJenkinsHost() throws MalformedURLException {
+        return getParsedJenkinsUrl().getHost();
     }
 }

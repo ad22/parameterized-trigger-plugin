@@ -72,7 +72,12 @@ if(elasticSearchUri != null && blockingBuildRefs.size() > 0) {
 				li {
 					if (item != null) {
 						text(item.projectName)
-						a(href: "${elasticSearchUri}?q=_id:${item.projectName}_${item.buildNumber}&&_source_includes=message,@buildTimestamp&&pretty=true", class: "model-link") {
+						if (item.jenkinsHost != "" && item.jenkinsHost != null) {
+							id = "${item.jenkinsHost}_${item.projectName}_${item.buildNumber}"
+						} else {
+							id = "${item.projectName}_${item.buildNumber}"
+						}
+						a(href: "${elasticSearchUri}?q=_id:${id}&&_source_includes=message,@buildTimestamp&&pretty=true", class: "model-link") {
 							img(src: "${imagesURL}/16x16/${iconFileName}",
 									alt: "${iconDescription}", height: "16", width: "16")
 							text('#' + item.buildNumber)
