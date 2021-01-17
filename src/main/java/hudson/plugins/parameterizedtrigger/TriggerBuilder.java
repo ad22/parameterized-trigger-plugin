@@ -52,6 +52,7 @@ import jenkins.model.DependencyDeclarer;
 import org.jvnet.libpam.impl.PAMLibrary;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.stapler.DataBoundConstructor;
+import org.apache.commons.lang.StringUtils;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -174,6 +175,7 @@ public class TriggerBuilder extends Builder implements DependencyDeclarer {
                                             runs.remove(future);
                                             Run b = future.get();
                                             listener.getLogger().println(HyperlinkNote.encodeTo('/' + b.getUrl(), b.getFullDisplayName()) + " completed. Result was " + b.getResult());
+                                            listener.getLogger().println("Description: " + StringUtils.abbreviate(b.getDescription(), 15));
                                             BuildInfoExporterAction.addBuildInfoExporterAction(build, b.getParent().getFullName(), b.getNumber(), b.getResult(), b.getDescription());
 
                                             if (buildStepResult && config.getBlock().mapBuildStepResult(b.getResult())) {
@@ -185,6 +187,9 @@ public class TriggerBuilder extends Builder implements DependencyDeclarer {
                                             listener.getLogger().println("Skipping " + ModelHyperlinkNote.encodeTo(p) + ". The project was not triggered by some reason.");
                                         }
                                     } catch (CancellationException x) {
+                                        if (x.getMessage() != null) {
+                                            listener.getLogger().println(x.getMessage());
+                                        }
                                         listener.getLogger().println("An instance of " + p.getFullDisplayName() +  " was cancelled");
                                         throw new AbortException(p.getFullDisplayName() + " aborted.");
                                     }
