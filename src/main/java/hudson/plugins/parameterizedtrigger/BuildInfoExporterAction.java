@@ -375,7 +375,7 @@ public class BuildInfoExporterAction implements EnvironmentContributingAction {
       URI logstashUri = ((ElasticSearchDao) logstashIndexer).getUri();
       if (logstashUri != null) {
         String[] path = logstashUri.getPath().split("/");
-        String wildcardPath = path[1] + "*/" + path[2] + "/_search";
+        String wildcardPath = path[1] + "*" + "/_search";
         URIBuilder queryUri = new URIBuilder(logstashUri);
         queryUri.setPath(wildcardPath);
         try {
